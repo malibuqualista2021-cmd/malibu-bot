@@ -398,39 +398,55 @@ async def cmd_notify_expired(update: Update, context):
         return
     
     sent = 0
+    expired_count = len(expired_users)
     for user in expired_users:
         try:
-            user_id = user.get('telegram_id')
-            if user_id:
+            raw_id = user.get('telegram_id', '')
+            user_id = str(raw_id).strip()
+            if user_id and user_id.isdigit():
                 await context.bot.send_message(
                     chat_id=int(user_id),
                     text=f"⚠️ Malibu PRZ Suite erişiminiz sona erdi. Yenilemek için: {WEBSITE_URL}/",
                     parse_mode="Markdown"
                 )
                 sent += 1
+                await asyncio.sleep(0.15)
         except Exception as e:
             log.warning(f"Bildirim gönderilemedi {user.get('telegram_id')}: {e}")
     
-    await update.message.reply_text(f"📨 {sent}/{len(expired_users)} kişiye bildirim gönderildi.")
+    await update.message.reply_text(f"📨 {sent}/{expired_count} kişiye bildirim gönderildi.")
 
 async def cmd_scan(update: Update, context):
-    """Sheets'i kontrol et ve süresi dolanlara bildirim gönder"""
+    """Sheets'i kontrol et ve süresi dolanlara bildirim gönder - Gelişmiş Tarama"""
     if str(update.effective_user.id) != str(ADMIN_ID):
         return
     
-    await update.message.reply_text("🔍 Google Sheets taranıyor ve süresi dolanlar kontrol ediliyor...")
+    status_msg = await update.message.reply_text("🔍 Gelişmiş tarama başlatılıyor... Lütfen bekleyin.")
     
     try:
         expired_users = await get_expired_users()
         
         if not expired_users:
-            await update.message.reply_text("✅ Süresi dolan veya bildirim bekleyen kullanıcı bulunamadı.")
+            await status_msg.edit_text("✅ Süresi dolan veya bildirim bekleyen kullanıcı bulunamadı.")
             return
             
+        if isinstance(expired_users, dict) and "error" in expired_users:
+            err_txt = f"❌ Sheets Hatası: {expired_users.get('error')}"
+            if "headers_found" in expired_users:
+                err_txt += f"\nBulunan sütunlar: {expired_users.get('headers_found')}"
+            await status_msg.edit_text(err_txt)
+            return
+
+        total_found = len(expired_users)
         sent = 0
+        skipped_invalid = 0
+        errors = 0
+        
         for user in expired_users:
             try:
-                user_id = str(user.get('telegram_id', '')).strip()
+                raw_id = user.get('telegram_id', '')
+                user_id = str(raw_id).strip()
+                
                 if user_id and user_id.isdigit():
                     await context.bot.send_message(
                         chat_id=int(user_id),
@@ -438,14 +454,26 @@ async def cmd_scan(update: Update, context):
                         parse_mode="Markdown"
                     )
                     sent += 1
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.15)
+                else:
+                    skipped_invalid += 1
+                    log.warning(f"Tarama: Geçersiz ID ({raw_id}) atlandı.")
             except Exception as e:
-                log.warning(f"Bildirim gönderilemedi {user.get('telegram_id')}: {e}")
+                errors += 1
+                log.error(f"Bildirim hatası ({user_id}): {e}")
         
-        await update.message.reply_text(f"✅ Tarama tamamlandı.\n📨 {sent}/{len(expired_users)} kullanıcıya bildirim gönderildi.")
+        report = (
+            f"✅ *Gelişmiş Tarama Tamamlandı*\n\n"
+            f"📊 Toplam Tespit: `{total_found}`\n"
+            f"📨 Başarıyla Gönderilen: `{sent}`\n"
+            f"⚠️ Geçersiz ID (Atlanan): `{skipped_invalid}`\n"
+            f"❌ Hatalı Gönderim: `{errors}`"
+        )
+        await status_msg.edit_text(report, parse_mode="Markdown")
+        
     except Exception as e:
         log.error(f"Scan error: {e}")
-        await update.message.reply_text(f"❌ Tarama sırasında hata oluştu: {e}")
+        await status_msg.edit_text(f"❌ Tarama sırasında teknik hata: {e}")
 
 async def cmd_sync(update: Update, context):
     """Sheets senkronizasyonu"""
