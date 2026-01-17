@@ -415,12 +415,40 @@ async def cmd_notify_expired(update: Update, context):
     await update.message.reply_text(f"📨 {sent}/{len(expired_users)} kişiye bildirim gönderildi.")
 
 async def cmd_scan(update: Update, context):
-    """Tarama komutu (placeholder)"""
+    """Sheets'i kontrol et ve süresi dolanlara bildirim gönder"""
     if str(update.effective_user.id) != str(ADMIN_ID):
         return
-    await update.message.reply_text("🔍 Tarama yapılıyor...")
-    # Tarama mantığı buraya gelecek
-    await update.message.reply_text("✅ Tarama tamamlandı.")
+    
+    await update.message.reply_text("🔍 Google Sheets taranıyor ve süresi dolanlar kontrol ediliyor...")
+    
+    try:
+        expired_users = await get_expired_users()
+        
+        if not expired_users:
+            await update.message.reply_text("✅ Süresi dolan veya bildirim bekleyen kullanıcı bulunamadı.")
+            return
+            
+        sent = 0
+        for user in expired_users:
+            try:
+                user_id = user.get('telegram_id')
+                if user_id:
+                    await context.bot.send_message(
+                        chat_id=int(user_id),
+                        text=f"⚠️ *Malibu PRZ Suite* erişiminiz sona erdi.\n\n"
+                             f"Yenilemek için: {WEBSITE_URL}",
+                        parse_mode="Markdown"
+                    )
+                    sent += 1
+                    # Spam filtresine takılmamak için kısa bir bekleme
+                    await asyncio.sleep(0.1)
+            except Exception as e:
+                log.warning(f"Bildirim gönderilemedi {user.get('telegram_id')}: {e}")
+        
+        await update.message.reply_text(f"✅ Tarama tamamlandı.\n📨 {sent}/{len(expired_users)} kullanıcıya bildirim gönderildi.")
+    except Exception as e:
+        log.error(f"Scan error: {e}")
+        await update.message.reply_text(f"❌ Tarama sırasında hata oluştu: {e}")
 
 async def cmd_sync(update: Update, context):
     """Sheets senkronizasyonu"""
