@@ -404,8 +404,7 @@ async def cmd_notify_expired(update: Update, context):
             if user_id:
                 await context.bot.send_message(
                     chat_id=int(user_id),
-                    text=f"⚠️ *Malibu PRZ Suite* erişiminiz sona erdi.\n\n"
-                         f"Yenilemek için: {WEBSITE_URL}",
+                    text=f"⚠️ Malibu PRZ Suite erişiminiz sona erdi. Yenilemek için: {WEBSITE_URL}/",
                     parse_mode="Markdown"
                 )
                 sent += 1
@@ -435,8 +434,7 @@ async def cmd_scan(update: Update, context):
                 if user_id:
                     await context.bot.send_message(
                         chat_id=int(user_id),
-                        text=f"⚠️ *Malibu PRZ Suite* erişiminiz sona erdi.\n\n"
-                             f"Yenilemek için: {WEBSITE_URL}",
+                        text=f"⚠️ Malibu PRZ Suite erişiminiz sona erdi. Yenilemek için: {WEBSITE_URL}/",
                         parse_mode="Markdown"
                     )
                     sent += 1
