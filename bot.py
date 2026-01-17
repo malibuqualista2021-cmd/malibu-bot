@@ -417,7 +417,7 @@ async def cmd_notify_expired(update: Update, context):
     await update.message.reply_text(f"📨 {sent}/{expired_count} kişiye bildirim gönderildi.")
 
 async def cmd_scan(update: Update, context):
-    """Sheets'i kontrol et ve süresi dolanlara bildirim gönder - Gelişmiş Tarama"""
+    """Sheets'i kontrol et ve süresi dolanlara bildirim gönder - Crystal Clear Edition"""
     if str(update.effective_user.id) != str(ADMIN_ID):
         return
     
@@ -431,49 +431,48 @@ async def cmd_scan(update: Update, context):
             return
             
         if isinstance(expired_users, dict) and "error" in expired_users:
-            err_txt = f"❌ Sheets Hatası: {expired_users.get('error')}"
-            if "headers_found" in expired_users:
-                err_txt += f"\nBulunan sütunlar: {expired_users.get('headers_found')}"
-            await status_msg.edit_text(err_txt)
+            await status_msg.edit_text(f"❌ Sheets Hatası: {expired_users.get('error')}")
             return
 
-        total_found = len(expired_users)
+        total_detected = len(expired_users)
         sent = 0
-        skipped_invalid = 0
+        no_id = 0
         errors = 0
         
         for user in expired_users:
-            try:
-                raw_id = user.get('telegram_id', '')
-                user_id = str(raw_id).strip()
-                
-                if user_id and user_id.isdigit():
+            raw_id = str(user.get('telegram_id', '')).strip()
+            
+            # ID kontrolü (Sayısal mı?)
+            if raw_id and raw_id.isdigit():
+                try:
                     await context.bot.send_message(
-                        chat_id=int(user_id),
+                        chat_id=int(raw_id),
                         text=f"⚠️ Malibu PRZ Suite erişiminiz sona erdi. Yenilemek için: {WEBSITE_URL}/",
                         parse_mode="Markdown"
                     )
                     sent += 1
                     await asyncio.sleep(0.15)
-                else:
-                    skipped_invalid += 1
-                    log.warning(f"Tarama: Geçersiz ID ({raw_id}) atlandı.")
-            except Exception as e:
-                errors += 1
-                log.error(f"Bildirim hatası ({user_id}): {e}")
+                except Exception as e:
+                    errors += 1
+                    log.error(f"Mesaj hatası ({raw_id}): {e}")
+            else:
+                # ID "Yok" veya geçersiz olanlar
+                no_id += 1
         
         report = (
-            f"✅ *Gelişmiş Tarama Tamamlandı*\n\n"
-            f"📊 Toplam Tespit: `{total_found}`\n"
-            f"📨 Başarıyla Gönderilen: `{sent}`\n"
-            f"⚠️ Geçersiz ID (Atlanan): `{skipped_invalid}`\n"
-            f"❌ Hatalı Gönderim: `{errors}`"
+            f"🚀 *Tarama Raporu*\n\n"
+            f"📅 Tarih: `{datetime.now(timezone.utc).strftime('%d.%m.%Y')}`\n"
+            f"🔍 Tespit Edilen Süresi Dolan: `{total_detected}`\n\n"
+            f"✅ Bildirim Gönderilen: `{sent}`\n"
+            f"⚠️ ID'si Eksik (Yok): `{no_id}`\n"
+            f"❌ Teknik Hata: `{errors}`\n\n"
+            f"*Not:* ID'si 'Yok' olanlara Telegram üzerinden ulaşılamaz. Yeni kayıtlarda ID otomatik kaydedilecektir."
         )
         await status_msg.edit_text(report, parse_mode="Markdown")
         
     except Exception as e:
         log.error(f"Scan error: {e}")
-        await status_msg.edit_text(f"❌ Tarama sırasında teknik hata: {e}")
+        await status_msg.edit_text(f"❌ Tarama sırasında teknik hata oluştu: {e}")
 
 async def cmd_sync(update: Update, context):
     """Sheets senkronizasyonu"""
