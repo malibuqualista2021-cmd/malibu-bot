@@ -606,15 +606,18 @@ def bot_thread():
             time.sleep(3)
 
 def keep_alive_thread():
-    """Keep-alive ping"""
+    """Botun uykuya geçmesini engelleyen ping sistemi"""
     time.sleep(60)
     while not SHUTDOWN.is_set():
         try:
             url = f"https://{RAILWAY_URL}/ping" if RAILWAY_URL else f"http://localhost:{PORT}/ping"
-            requests.get(url, timeout=10)
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                log.debug("Keep-alive ping successful")
         except:
             pass
-        time.sleep(240)
+        # 3 dakikada bir ping at
+        time.sleep(180)
 
 def signal_handler(signum, frame):
     """Graceful shutdown"""
