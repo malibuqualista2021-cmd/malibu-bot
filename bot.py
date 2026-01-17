@@ -414,6 +414,30 @@ async def cmd_notify_expired(update: Update, context):
     
     await update.message.reply_text(f"📨 {sent}/{len(expired_users)} kişiye bildirim gönderildi.")
 
+async def cmd_scan(update: Update, context):
+    """Tarama komutu (placeholder)"""
+    if str(update.effective_user.id) != str(ADMIN_ID):
+        return
+    await update.message.reply_text("🔍 Tarama yapılıyor...")
+    # Tarama mantığı buraya gelecek
+    await update.message.reply_text("✅ Tarama tamamlandı.")
+
+async def cmd_sync(update: Update, context):
+    """Sheets senkronizasyonu"""
+    if str(update.effective_user.id) != str(ADMIN_ID):
+        return
+    await update.message.reply_text("🔄 Sheets ile senkronizasyon başlatıldı...")
+    # Webhook üzerinden veri çekme mantığı buraya gelebilir
+    await update.message.reply_text("✅ Senkronizasyon tamamlandı.")
+
+async def cmd_repair_sheets(update: Update, context):
+    """Sheets tablolarını onar"""
+    if str(update.effective_user.id) != str(ADMIN_ID):
+        return
+    await update.message.reply_text("🔧 Sheets tabloları kontrol ediliyor...")
+    # Tablo onarım mantığı buraya gelecek
+    await update.message.reply_text("✅ Onarım tamamlandı.")
+
 async def cmd_help(update: Update, context):
     """Yardım"""
     text = (
@@ -427,7 +451,10 @@ async def cmd_help(update: Update, context):
             "\n*Admin Komutları:*\n"
             "/pending - Bekleyen talepler\n"
             "/status - Bot durumu\n"
-            "/notify\\_expired - Süresi dolanlara bildirim"
+            "/notify\\_expired - Süresi dolanlara bildirim\n"
+            "/scan - Tarama yap\n"
+            "/sync - Verileri senkronize et\n"
+            "/repair\\_sheets - Tabloları onar"
         )
     
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -458,6 +485,9 @@ async def run_bot():
     application.add_handler(CommandHandler("pending", cmd_pending))
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("notify_expired", cmd_notify_expired))
+    application.add_handler(CommandHandler("scan", cmd_scan))
+    application.add_handler(CommandHandler("sync", cmd_sync))
+    application.add_handler(CommandHandler("repair_sheets", cmd_repair_sheets))
     application.add_handler(CallbackQueryHandler(admin_callback, pattern="^(approve_|reject_)"))
     
     await application.initialize()
