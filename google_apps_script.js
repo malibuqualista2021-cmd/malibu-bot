@@ -80,39 +80,68 @@ function doGet(e) {
     }
 
     if (action === "expired") {
-        // Süresi dolan kullanıcıları bul
         const data = sheet.getDataRange().getValues();
-        const headers = data[0];
+        if (data.length < 2) return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+
+        const rawHeaders = data[0];
+        const headers = rawHeaders.map(h => h.toString().trim().toLowerCase());
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const bitisIdx = headers.indexOf("Bitiş");
-        const telegramIdIdx = headers.indexOf("Telegram ID");
-        const durumIdx = headers.indexOf("Durum");
+        // Esnek başlık bulma fonksiyonu
+        const findIndex = (opts) => {
+            for (let opt of opts) {
+                let idx = headers.indexOf(opt.toLowerCase());
+                if (idx !== -1) return idx;
+            }
+            return -1;
+        };
+
+        const bitisIdx = findIndex(["Bitiş Tarihi", "bitis tarihi", "Bitiş", "bitis", "End Date", "Expiry"]);
+        const telegramIdIdx = findIndex(["Telegram ID", "telegram id", "ID", "id", "User ID"]);
+        const durumIdx = findIndex(["Durum", "durum", "Status", "status"]);
+
+        if (bitisIdx === -1 || telegramIdIdx === -1) {
+            return ContentService.createTextOutput(JSON.stringify({
+                error: "Sütunlar bulunamadı",
+                headers_found: headers,
+                required: ["Bitiş Tarihi", "Telegram ID"]
+            })).setMimeType(ContentService.MimeType.JSON);
+        }
 
         const expired = [];
 
         for (let i = 1; i < data.length; i++) {
             const row = data[i];
-            const bitisTarih = row[bitisIdx];
-            const durum = row[durumIdx] || "";
+            const bitisVal = row[bitisIdx];
+            const telegramId = (row[telegramIdIdx] || "").toString().trim();
+            const durum = (row[durumIdx] || "").toString().trim();
 
-            // Aktif olanları kontrol et
-            if (!durum.includes("Aktif") && !durum.includes("✅")) continue;
+            if (!telegramId) continue;
 
             try {
-                let endDate;
-                if (typeof bitisTarih === "object") {
-                    endDate = bitisTarih;
-                } else {
-                    const parts = bitisTarih.split(".");
-                    endDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                let endDate = null;
+
+                if (bitisVal instanceof Date) {
+                    endDate = bitisVal;
+                } else if (typeof bitisVal === "string" && bitisVal.includes(".")) {
+                    const parts = bitisVal.split(".");
+                    if (parts.length === 3) {
+                        // DD.MM.YYYY formatı
+                        endDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                    }
                 }
 
-                if (endDate < today) {
+                if (endDate && endDate < today) {
+                    // Eğer zaten "Süresi Doldu" veya "Pasif" işaretlenmişse tekrar bildirim gitmesin
+                    // Ama kullanıcı "yüzlerce var" dediği için şimdilik Aktif olanları veya boş olanları alalım
+                    if (durum.includes("Süresi Doldu") || durum.includes("🔴") || durum.includes("Pasif")) {
+                        continue;
+                    }
+
                     expired.push({
-                        telegram_id: row[telegramIdIdx],
-                        bitis_tarihi: bitisTarih
+                        telegram_id: telegramId,
+                        bitis_tarihi: bitisVal
                     });
                 }
             } catch (e) {
