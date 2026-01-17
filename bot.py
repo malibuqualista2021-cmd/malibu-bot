@@ -430,15 +430,14 @@ async def cmd_scan(update: Update, context):
         sent = 0
         for user in expired_users:
             try:
-                user_id = user.get('telegram_id')
-                if user_id:
+                user_id = str(user.get('telegram_id', '')).strip()
+                if user_id and user_id.isdigit():
                     await context.bot.send_message(
                         chat_id=int(user_id),
                         text=f"⚠️ Malibu PRZ Suite erişiminiz sona erdi. Yenilemek için: {WEBSITE_URL}/",
                         parse_mode="Markdown"
                     )
                     sent += 1
-                    # Spam filtresine takılmamak için kısa bir bekleme
                     await asyncio.sleep(0.1)
             except Exception as e:
                 log.warning(f"Bildirim gönderilemedi {user.get('telegram_id')}: {e}")
